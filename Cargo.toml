@@ -1,0 +1,13 @@
+[package]
+name = "prisma-postgres-entityframework-json"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+psl = { git = "https://github.com/unlimitedcoder2/prisma-engines", features = [
+	"all",
+] }
+serde = "1.0.197"
+serde_json = "1.0.115"
+sql-schema-connector = { git = "https://github.com/unlimitedcoder2/prisma-engines" }
+sql-schema-describer = { git = "https://github.com/unlimitedcoder2/prisma-engines" }

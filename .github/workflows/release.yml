@@ -8,9 +8,9 @@ jobs:
     strategy:
       matrix:
         platform:
-          - release_for: FreeBSD-x86_64
+          - release_for: Linux-x86_64
             os: ubuntu-20.04
-            target: x86_64-unknown-freebsd
+            target: x86_64-unknown-linux-gnu
             bin: prisma-postgres-entityframework-json
             name: prisma-postgres-entityframework-json-linux-x86_64.tar.gz
             command: build
@@ -27,11 +27,11 @@ jobs:
             name: prisma-postgres-entityframework-json-darwin-x86_64.tar.gz
             command: both
           - release_for: macOS-aarch64
-            os: macOS-latest
+            os: macos-14
             target: aarch64-apple-darwin
             bin: prisma-postgres-entityframework-json
             name: prisma-postgres-entityframework-json-darwin-aarch64.tar.gz
-            command: both
+            command: build
 
     runs-on: ${{ matrix.platform.os }}
     steps:

@@ -48,4 +48,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ${{ matrix.platform.name }}
+          files: target/${{ matrix.platform.name }}/release/${{ matrix.platform.bin }}

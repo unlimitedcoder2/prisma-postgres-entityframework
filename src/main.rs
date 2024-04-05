@@ -3,8 +3,9 @@ use std::fs;
 use psl::builtin_connectors::PostgresType;
 use serde::{Deserialize, Serialize};
 use sql_schema_describer::{
-	ColumnArity, ColumnTypeFamily, EnumId, ForeignKeyAction, ForeignKeyWalker, IndexType,
-	IndexWalker, SqlSchema, TableColumnId, TableColumnWalker, TableWalker,
+	ColumnArity, ColumnTypeFamily, DefaultKind, EnumId, ForeignKeyAction, ForeignKeyWalker,
+	IndexType, IndexWalker, PrismaValue, SqlSchema, TableColumnId, TableColumnWalker,
+	TableDefaultValueWalker, TableWalker,
 };
 use std::any::Any;
 
@@ -97,11 +98,58 @@ enum DatabaseType {
 	JsonB,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, PartialOrd, Ord)]
+#[serde(tag = "t", content = "c", rename_all = "snake_case")]
+pub enum DatabasePrismaValue {
+	String(String),
+	Boolean(bool),
+	Enum(String),
+	Int(i64),
+	Null,
+	Bytes(Vec<u8>),
+}
+
+fn get_prisma_default(value: PrismaValue) -> Option<DatabasePrismaValue> {
+	match value {
+		PrismaValue::String(v) => Some(DatabasePrismaValue::String(v)),
+		PrismaValue::Boolean(v) => Some(DatabasePrismaValue::Boolean(v)),
+		PrismaValue::Enum(v) => Some(DatabasePrismaValue::Enum(v)),
+		PrismaValue::Int(v) => Some(DatabasePrismaValue::Int(v)),
+		PrismaValue::Null => Some(DatabasePrismaValue::Null),
+
+		PrismaValue::BigInt(v) => None,
+		PrismaValue::Json(_) => None,
+		PrismaValue::Bytes(_) => None,
+		PrismaValue::Uuid(_) => None,
+		PrismaValue::DateTime(_) => None,
+		PrismaValue::Float(_) => None,
+		PrismaValue::List(_) => None,
+		PrismaValue::Object(_) => None,
+	}
+}
+
+/// A DefaultValue
+#[derive(Serialize, PartialEq, Debug, Clone)]
+#[serde(tag = "t", content = "c", rename_all = "snake_case")]
+pub enum DatabaseDefaultKind {
+	/// A constant value, parsed as String
+	Value(DatabasePrismaValue),
+	/// An expression generating a current timestamp.
+	Now,
+	/// An expression generating a sequence.
+	Sequence(String),
+	/// A unique row ID,
+	UniqueRowid,
+	/// An unrecognized Default Value
+	DbGenerated(Option<String>),
+}
+
+#[derive(Serialize, Debug, Clone)]
 struct DatabaseColumn {
 	name: String,
 	arity: DatabaseColumnArity,
 	tpe: DatabaseType,
+	default: Option<DatabaseDefaultKind>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -142,7 +190,7 @@ impl Into<DatabaseForeignKey> for ForeignKeyWalker<'_> {
 	}
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 struct DatabaseTable {
 	name: String,
 	columns: Vec<DatabaseColumn>,
@@ -156,10 +204,25 @@ struct DatabaseIndex {
 	columns: Vec<String>,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 struct DatabaseSchema {
 	tables: Vec<DatabaseTable>,
 	foreign_keys: Vec<DatabaseForeignKey>,
+}
+
+fn get_default_value(default: Option<TableDefaultValueWalker<'_>>) -> Option<DatabaseDefaultKind> {
+	match default {
+		Some(d) => match d.kind() {
+			DefaultKind::Value(v) => {
+				Some(DatabaseDefaultKind::Value(get_prisma_default(v.clone())?))
+			}
+			DefaultKind::Now => Some(DatabaseDefaultKind::Now),
+			DefaultKind::Sequence(s) => Some(DatabaseDefaultKind::Sequence(s.to_string())),
+			DefaultKind::UniqueRowid => Some(DatabaseDefaultKind::UniqueRowid),
+			DefaultKind::DbGenerated(s) => Some(DatabaseDefaultKind::DbGenerated(s.clone())),
+		},
+		None => None,
+	}
 }
 
 impl Into<DatabaseColumn> for TableColumnWalker<'_> {
@@ -175,6 +238,7 @@ impl Into<DatabaseColumn> for TableColumnWalker<'_> {
 				self.column_native_type::<PostgresType>(),
 				self.column_type().family.clone(),
 			),
+			default: get_default_value(self.default()),
 		}
 	}
 }

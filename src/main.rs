@@ -117,7 +117,7 @@ fn get_prisma_default(value: PrismaValue) -> Option<DatabasePrismaValue> {
 		PrismaValue::Int(v) => Some(DatabasePrismaValue::Int(v)),
 		PrismaValue::Null => Some(DatabasePrismaValue::Null),
 
-		PrismaValue::BigInt(v) => None,
+		PrismaValue::BigInt(_) => None,
 		PrismaValue::Json(_) => None,
 		PrismaValue::Bytes(_) => None,
 		PrismaValue::Uuid(_) => None,

@@ -13,7 +13,7 @@ jobs:
         platform:
           - release_for: Linux-x86_64
             os: ubuntu-20.04
-            target: x86_64-unknown-linux-musl
+            target: x86_64-unknown-linux-gnu
             bin: prisma-postgres-entityframework-json
             name: prisma-postgres-entityframework-json-linux-x86_64
             command: build

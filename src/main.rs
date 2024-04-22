@@ -3,9 +3,9 @@ use std::fs;
 use psl::builtin_connectors::PostgresType;
 use serde::{Deserialize, Serialize};
 use sql_schema_describer::{
-	ColumnArity, ColumnTypeFamily, DefaultKind, EnumId, ForeignKeyAction, ForeignKeyWalker,
-	IndexType, IndexWalker, PrismaValue, SqlSchema, TableColumnId, TableColumnWalker,
-	TableDefaultValueWalker, TableWalker,
+	ColumnArity, ColumnTypeFamily, DefaultKind, EnumId, EnumVariantWalker, EnumWalker,
+	ForeignKeyAction, ForeignKeyWalker, IndexType, IndexWalker, PrismaValue, SqlSchema,
+	TableColumnId, TableColumnWalker, TableDefaultValueWalker, TableWalker,
 };
 use std::any::Any;
 
@@ -205,9 +205,22 @@ struct DatabaseIndex {
 }
 
 #[derive(Serialize, Debug, Clone)]
+struct DatabaseEnumVariant {
+	name: String,
+}
+
+#[derive(Serialize, Debug, Clone)]
+struct DatabaseEnum {
+	id: EnumId,
+	name: String,
+	variants: Vec<DatabaseEnumVariant>,
+}
+
+#[derive(Serialize, Debug, Clone)]
 struct DatabaseSchema {
 	tables: Vec<DatabaseTable>,
 	foreign_keys: Vec<DatabaseForeignKey>,
+	enums: Vec<DatabaseEnum>,
 }
 
 fn get_default_value(default: Option<TableDefaultValueWalker<'_>>) -> Option<DatabaseDefaultKind> {
@@ -336,6 +349,24 @@ impl Into<DatabaseIndex> for IndexWalker<'_> {
 	}
 }
 
+impl Into<DatabaseEnumVariant> for EnumVariantWalker<'_> {
+	fn into(self) -> DatabaseEnumVariant {
+		DatabaseEnumVariant {
+			name: self.name().to_string(),
+		}
+	}
+}
+
+impl Into<DatabaseEnum> for EnumWalker<'_> {
+	fn into(self) -> DatabaseEnum {
+		DatabaseEnum {
+			id: self.id,
+			name: self.name().to_string(),
+			variants: self.variants().map(|v| v.into()).collect(),
+		}
+	}
+}
+
 fn create_database_schema(schema: &SqlSchema) -> DatabaseSchema {
 	DatabaseSchema {
 		tables: schema
@@ -346,6 +377,10 @@ fn create_database_schema(schema: &SqlSchema) -> DatabaseSchema {
 			.walk_foreign_keys()
 			.map(|f| f.into())
 			.collect::<Vec<DatabaseForeignKey>>(),
+		enums: schema
+			.enum_walkers()
+			.map(|e| e.into())
+			.collect::<Vec<DatabaseEnum>>(),
 	}
 }
 
